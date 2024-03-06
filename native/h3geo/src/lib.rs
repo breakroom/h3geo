@@ -107,7 +107,7 @@ fn point_to_cell(point: Point, resolution: u8) -> Result<u64, Atom> {
     return Ok(u64::from(cell));
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 fn polygon_to_cells(polygon: Polygon, resolution: u8) -> Result<Vec<u64>, Atom> {
     let resolution = match h3o::Resolution::try_from(resolution) {
         Ok(resolution) => resolution,
@@ -128,7 +128,7 @@ fn polygon_to_cells(polygon: Polygon, resolution: u8) -> Result<Vec<u64>, Atom> 
     return Ok(cells.map(|cell| u64::from(cell)).unique().collect());
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 fn multipolygon_to_cells(multipolygon: MultiPolygon, resolution: u8) -> Result<Vec<u64>, Atom> {
     let resolution = match h3o::Resolution::try_from(resolution) {
         Ok(resolution) => resolution,
