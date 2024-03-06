@@ -1,0 +1,6 @@
+{
+  "rust-analyzer.linkedProjects": [
+    "native/h3geo/Cargo.toml"
+  ],
+  "editor.formatOnSave": true
+}

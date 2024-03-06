@@ -1,0 +1,16 @@
+[package]
+name = "h3geo"
+version = "0.1.0"
+authors = []
+edition = "2021"
+
+[lib]
+name = "h3geo"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+rustler = { version = "0.31.0", features = ["nif_version_2_16"] }
+h3o = { version = "0.6.0", features = ["std", "geo"] }
+geo = "0.28.0"
+itertools = "0.12.1"
