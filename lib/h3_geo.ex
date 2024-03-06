@@ -1,7 +1,12 @@
 defmodule H3Geo do
-  use Rustler,
+  version = Mix.Project.config()[:version]
+
+  use RustlerPrecompiled,
     otp_app: :h3geo,
-    crate: :h3geo
+    crate: :h3geo,
+    base_url: "https://github.com/breakroom/h3geo/releases/download/v#{version}",
+    force_build: System.get_env("H3GEO_BUILD") in ["1", "true"],
+    version: version
 
   @doc """
   Takes a `Geo.Point` and an `Integer` precision and returns an integer
