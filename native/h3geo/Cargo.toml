@@ -12,5 +12,5 @@ crate-type = ["cdylib"]
 [dependencies]
 rustler = { version = "0.31.0", features = ["nif_version_2_16"] }
 h3o = { version = "0.6.0", features = ["std", "geo"] }
-geo = "0.28.0"
+geo = "0.27.0"
 itertools = "0.12.1"
