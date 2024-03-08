@@ -14,7 +14,7 @@ defmodule H3Geo do
     otp_app: :h3geo,
     crate: :h3geo,
     base_url: "https://github.com/breakroom/h3geo/releases/download/v#{version}",
-    force_build: System.get_env("H3GEO_BUILD") in ["1", "true"],
+    force_build: System.get_env("FORCE_H3GEO_BUILD") in ["1", "true"],
     targets:
       Enum.uniq(["aarch64-unknown-linux-musl" | RustlerPrecompiled.Config.default_targets()]),
     version: version
