@@ -30,3 +30,6 @@ h3geo-*.tar
 
 # Shared library
 /priv/native/
+
+# Don't commit checksums so these aren't accidentally baked into a release
+checksum-Elixir.h3geo.exs
