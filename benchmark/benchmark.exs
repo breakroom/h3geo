@@ -1,7 +1,5 @@
-defmodule Mix.Tasks.Benchmark do
-  use Mix.Task
-
-  def run(_) do
+defmodule Main do
+  def run() do
     point = %Geo.Point{coordinates: {-1.0, 51.0}, srid: 4326}
     small_polygon = read_geojson("small_polygon.geojson")
     complex_multipolygon = read_geojson("multipolygon.geojson")
@@ -30,10 +28,12 @@ defmodule Mix.Tasks.Benchmark do
 
   defp read_geojson(filename) do
     __DIR__
-    |> Path.join("../../../test/support")
+    |> Path.join("../test/support")
     |> Path.join(filename)
     |> File.read!()
     |> Jason.decode!()
     |> Geo.JSON.decode!()
   end
 end
+
+Main.run()
