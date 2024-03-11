@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        nif: ["2.15", "2.16", "2.17"]
+        nif: ["2.15"]
         job:
           - { target: aarch64-apple-darwin, os: macos-11 }
           - {

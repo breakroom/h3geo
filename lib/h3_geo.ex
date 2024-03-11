@@ -17,7 +17,8 @@ defmodule H3Geo do
     force_build: System.get_env("FORCE_H3GEO_BUILD") in ["1", "true"],
     targets:
       Enum.uniq(["aarch64-unknown-linux-musl" | RustlerPrecompiled.Config.default_targets()]),
-    version: version
+    version: version,
+    nif_versions: ["2.15"]
 
   @type index :: pos_integer()
   @type precision :: 0..15
