@@ -81,6 +81,16 @@ defmodule H3GeoTest do
 
       assert {:error, :invalid_geometry} == H3Geo.multipolygon_to_cells(polygon, 6)
     end
+
+    test "it handles a Multipolygon containing integer coordinates" do
+      multipolygon =
+        File.read!(Path.join(__DIR__, "support/complex_multipolygon.geojson"))
+        |> Jason.decode!()
+        |> Geo.JSON.decode!()
+
+      assert {:ok, returned_cells} = H3Geo.multipolygon_to_cells(multipolygon, 4)
+      assert returned_cells == []
+    end
   end
 
   describe "compact/1 and uncompact/2" do
