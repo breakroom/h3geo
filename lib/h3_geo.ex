@@ -161,4 +161,38 @@ defmodule H3Geo do
   @spec center_child(index(), precision()) ::
           {:ok, index()} | {:error, :invalid_cell_index | :invalid_resolution}
   def center_child(_index, _resolution), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns the center of the cell as a `Geo.Point`, with an SRID of 4326.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.LatLng.html#impl-From%3CCellIndex%3E-for-LatLng)
+  """
+  @spec cell_to_point(index()) :: {:ok, Geo.Point.t()} | {:error, :invalid_cell_index}
+  def cell_to_point(_index), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns the boundary of the cell as a `Geo.Polygon` with a single closed
+  ring, with an SRID of 4326.
+
+  Cells crossing the antimeridian are not split, so their longitudes jump
+  between -180 and 180.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#method.boundary)
+  """
+  @spec cell_to_polygon(index()) :: {:ok, Geo.Polygon.t()} | {:error, :invalid_cell_index}
+  def cell_to_polygon(_index), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Merges a list of cells into a `Geo.MultiPolygon` outlining them, with an
+  SRID of 4326. This is the inverse of `polygon_to_cells/2` and
+  `multipolygon_to_cells/2`.
+
+  All cells must have the same resolution, so compacted cells must be
+  uncompacted first. Duplicate cells are ignored.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/geom/struct.Solvent.html#method.dissolve)
+  """
+  @spec cells_to_multipolygon(list(index())) ::
+          {:ok, Geo.MultiPolygon.t()} | {:error, :invalid_cell_index | :resolution_mismatch}
+  def cells_to_multipolygon(_indexes), do: :erlang.nif_error(:nif_not_loaded)
 end

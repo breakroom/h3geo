@@ -4,7 +4,7 @@ use geo::{
 };
 use h3o::{
     self, CellIndex,
-    geom::{ContainmentMode, TilerBuilder},
+    geom::{ContainmentMode, SolventBuilder, TilerBuilder},
 };
 use itertools::Itertools;
 use rustler::{Atom, NifStruct, NifTuple, Term};
@@ -21,6 +21,7 @@ mod atoms {
       invalid_resolution,
       invalid_geometry,
       compaction_error,
+      resolution_mismatch,
       unknown,
     }
 }
@@ -313,6 +314,38 @@ fn center_child(cell: u64, resolution: u8) -> Result<u64, Atom> {
     match cell.center_child(resolution) {
         Some(child) => Ok(u64::from(child)),
         None => Err(atoms::invalid_resolution()),
+    }
+}
+
+#[rustler::nif]
+fn cell_to_point(cell: u64) -> Result<PointOut, Atom> {
+    let cell = parse_cell(cell)?;
+    let lat_lng = h3o::LatLng::from(cell);
+
+    return Ok(PointOut::from(GeoCoord::from(lat_lng)));
+}
+
+#[rustler::nif]
+fn cell_to_polygon(cell: u64) -> Result<PolygonOut, Atom> {
+    let cell = parse_cell(cell)?;
+
+    // GeoPolygon::new closes the ring, which the boundary on its own isn't
+    let exterior = GeoLineString::from(cell.boundary());
+    let polygon = GeoPolygon::new(exterior, vec![]);
+
+    return Ok(PolygonOut::from(polygon));
+}
+
+#[rustler::nif(schedule = "DirtyCpu")]
+fn cells_to_multipolygon(cells: Vec<u64>) -> Result<MultiPolygonOut, Atom> {
+    // Deduplicate first, as the solvent errors on duplicate cells
+    let cells = parse_cells(cells.into_iter().unique())?;
+
+    // With duplicates removed, the only possible error is mixed resolutions
+    let solvent = SolventBuilder::new().build();
+    match solvent.dissolve(cells) {
+        Ok(multipolygon) => Ok(MultiPolygonOut::from(multipolygon)),
+        Err(_e) => Err(atoms::resolution_mismatch()),
     }
 }
 

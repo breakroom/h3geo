@@ -257,4 +257,124 @@ defmodule H3GeoTest do
       assert {:error, :invalid_cell_index} == H3Geo.center_child(@invalid_cell, 7)
     end
   end
+
+  describe "cell_to_point/1" do
+    test "it returns the center of the cell" do
+      assert {:ok, point} = H3Geo.cell_to_point(@cell)
+      assert_valid_geo(point, Geo.Point)
+      assert {lng, lat} = point.coordinates
+      assert_in_delta lng, -1.0, 0.05
+      assert_in_delta lat, 51.0, 0.05
+      assert {:ok, @cell} == H3Geo.point_to_cell(point, 6)
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.cell_to_point(@invalid_cell)
+    end
+  end
+
+  describe "cell_to_polygon/1" do
+    test "it returns the boundary of a hexagon" do
+      assert {:ok, polygon} = H3Geo.cell_to_polygon(@cell)
+      assert_valid_geo(polygon, Geo.Polygon)
+      assert [ring] = polygon.coordinates
+      assert length(ring) == 7
+      assert List.first(ring) == List.last(ring)
+      assert {:ok, cells} = H3Geo.polygon_to_cells(polygon, 6)
+      assert @cell in cells
+    end
+
+    test "it returns the boundary of a pentagon" do
+      assert {:ok, polygon} = H3Geo.cell_to_polygon(@pentagon)
+      assert [ring] = polygon.coordinates
+      assert length(ring) == 6
+      assert List.first(ring) == List.last(ring)
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.cell_to_polygon(@invalid_cell)
+    end
+  end
+
+  describe "cells_to_multipolygon/1" do
+    test "it returns a single outline for contiguous cells" do
+      assert {:ok, center} = H3Geo.center_child(@cell, 7)
+      assert {:ok, children} = H3Geo.children(@cell, 7)
+      assert {:ok, multipolygon} = H3Geo.cells_to_multipolygon(children)
+      assert_valid_geo(multipolygon, Geo.MultiPolygon)
+      assert [[ring]] = multipolygon.coordinates
+      assert List.first(ring) == List.last(ring)
+
+      # The center child is fully inside the outline, so is covered by it
+      assert {:ok, cells} = H3Geo.multipolygon_to_cells(multipolygon, 7)
+      assert center in cells
+    end
+
+    test "it returns separate polygons for separate cells" do
+      assert {:ok, london} = H3Geo.point_to_cell(%Geo.Point{coordinates: {-0.1, 51.5}}, 6)
+      assert {:ok, paris} = H3Geo.point_to_cell(%Geo.Point{coordinates: {2.35, 48.85}}, 6)
+      assert {:ok, multipolygon} = H3Geo.cells_to_multipolygon([london, paris])
+      assert [[_], [_]] = multipolygon.coordinates
+    end
+
+    test "it returns the same outline as cell_to_polygon/1 for a single cell" do
+      assert {:ok, polygon} = H3Geo.cell_to_polygon(@cell)
+      assert {:ok, multipolygon} = H3Geo.cells_to_multipolygon([@cell])
+      assert [[ring]] = multipolygon.coordinates
+      assert [expected_ring] = polygon.coordinates
+      assert length(ring) == length(expected_ring)
+
+      # The rings may start at different vertices, so compare them without
+      # their closing coordinate
+      assert ring_vertices(ring) == ring_vertices(expected_ring)
+    end
+
+    test "it round trips with polygon_to_cells/2" do
+      polygon =
+        File.read!(Path.join(__DIR__, "support/polygon.geojson"))
+        |> Jason.decode!()
+        |> Geo.JSON.decode!()
+
+      assert {:ok, cells} = H3Geo.polygon_to_cells(polygon, 6)
+      assert {:ok, multipolygon} = H3Geo.cells_to_multipolygon(cells)
+      assert {:ok, returned_cells} = H3Geo.multipolygon_to_cells(multipolygon, 6)
+      assert MapSet.subset?(MapSet.new(cells), MapSet.new(returned_cells))
+    end
+
+    test "it returns an empty multipolygon for no cells" do
+      assert {:ok, %Geo.MultiPolygon{coordinates: []}} = H3Geo.cells_to_multipolygon([])
+    end
+
+    test "it ignores duplicate cells" do
+      assert {:ok, multipolygon} = H3Geo.cells_to_multipolygon([@cell, @cell])
+      assert [[_]] = multipolygon.coordinates
+    end
+
+    test "it errors with cells of different resolutions" do
+      assert {:ok, parent} = H3Geo.parent(@cell, 5)
+
+      assert {:error, :resolution_mismatch} ==
+               H3Geo.cells_to_multipolygon([@cell, parent])
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} ==
+               H3Geo.cells_to_multipolygon([@cell, @invalid_cell])
+    end
+  end
+
+  # Asserts the value is a complete struct of the given module (with every
+  # key present) that can be encoded as GeoJSON
+  defp assert_valid_geo(value, module) do
+    assert %{__struct__: ^module, srid: 4326, properties: %{}} = value
+    assert Enum.sort(Map.keys(value)) == Enum.sort(Map.keys(struct(module)))
+    assert %{"type" => _} = Geo.JSON.encode!(value)
+  end
+
+  defp ring_vertices(ring) do
+    ring
+    |> Enum.drop(-1)
+    |> Enum.map(fn {x, y} -> {Float.round(x, 9), Float.round(y, 9)} end)
+    |> Enum.sort()
+  end
 end
