@@ -6,6 +6,7 @@ defmodule Main do
 
     {:ok, complex_cells} = H3Geo.multipolygon_to_cells(complex_multipolygon, 6)
     {:ok, compacted_complex_cells} = H3Geo.compact(complex_cells)
+    {:ok, cell} = H3Geo.point_to_cell(point, 6)
 
     Benchee.run(%{
       "point_to_cell" => fn ->
@@ -22,6 +23,15 @@ defmodule Main do
       end,
       "uncompact" => fn ->
         {:ok, _} = H3Geo.uncompact(compacted_complex_cells, 6)
+      end,
+      "children" => fn ->
+        {:ok, _} = H3Geo.children(cell, 10)
+      end,
+      "grid_disk" => fn ->
+        {:ok, _} = H3Geo.grid_disk(cell, 50)
+      end,
+      "cells_to_multipolygon" => fn ->
+        {:ok, _} = H3Geo.cells_to_multipolygon(complex_cells)
       end
     })
   end

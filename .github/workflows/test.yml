@@ -34,7 +34,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
-          components: rustfmt
+          components: rustfmt, clippy
 
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
@@ -57,6 +57,9 @@ jobs:
 
       - name: Check Rust formatting
         run: cargo fmt --manifest-path native/h3geo/Cargo.toml --check
+
+      - name: Run Clippy
+        run: cargo clippy --manifest-path native/h3geo/Cargo.toml --all-targets -- -D warnings
 
       - name: Compile
         run: mix compile --warnings-as-errors
