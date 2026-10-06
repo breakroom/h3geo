@@ -5,8 +5,12 @@ defmodule H3Geo do
   It's a wrapper around the h3o Rust library, using `Rustler` to expose
   functions from the library in a manner that can be easily called from Elixir.
 
-  Currently only a handful of functions are implemented, mostly to do with
-  converting existing geometries into H3 cell indexes.
+  Cells are represented as integers. Geometries are `Geo` structs with
+  `{longitude, latitude}` coordinates; structs returned by this library have an
+  SRID of 4326, as H3 always uses WGS84.
+
+  Functions that take cells return `{:error, :invalid_cell_index}` if passed an
+  integer that isn't a valid cell, which can be checked with `valid_cell?/1`.
   """
   version = Mix.Project.config()[:version]
 

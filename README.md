@@ -5,7 +5,7 @@
 
 Implements H3, the hexagonal hierarchical geospatial indexing system, in Elixir. Behind the scenes it uses h3o, a Rust implementation of H3.
 
-This library is in early stages of development and currently only exposes a handful of functions from h3o for converting different geometries to cells.
+This library exposes a subset of h3o: converting `Geo` geometries to cells and back, inspecting and validating cells, moving between resolutions, and finding neighbouring cells.
 
 ## Installation
 
@@ -23,8 +23,20 @@ The NIF is provided as a precompiled bundle, so you won't need to install Rust t
 
 ```elixir
 point = %Geo.Point{coordinates: {-0.14234062595533195, 51.50107677017966}}
-precision = 6
-{:ok, cell} = H3Geo.point_to_cell(point, precision)
-Integer.to_string(cell, 16)
-# "86194AD17FFFFFF"
+{:ok, cell} = H3Geo.point_to_cell(point, 6)
+H3Geo.cell_to_string(cell)
+# {:ok, "86194ad17ffffff"}
+
+# The cell and its six neighbours
+{:ok, nearby} = H3Geo.grid_disk(cell, 1)
+
+# Their combined outline, as a %Geo.MultiPolygon{}
+{:ok, outline} = H3Geo.cells_to_multipolygon(nearby)
+
+# The containing cell at a coarser resolution
+{:ok, parent} = H3Geo.parent(cell, 4)
+H3Geo.cell_to_string(parent)
+# {:ok, "84194adffffffff"}
 ```
+
+See the [documentation](https://hexdocs.pm/h3geo) for the full list of functions.
