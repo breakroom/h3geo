@@ -12,7 +12,7 @@ This library is in early stages of development and currently only exposes a hand
 ```elixir
 def deps do
   [
-    {:h3geo, "~> 0.1.0"}
+    {:h3geo, "~> 0.2.0"}
   ]
 end
 ```
