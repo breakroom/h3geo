@@ -8,6 +8,7 @@ use h3o::{
 };
 use itertools::Itertools;
 use rustler::{Atom, NifStruct, NifTuple};
+use std::collections::HashMap;
 use std::convert::From;
 
 mod atoms {
@@ -27,6 +28,15 @@ mod atoms {
 pub struct Coordinate {
     x: f64,
     y: f64,
+}
+
+impl From<GeoCoord> for Coordinate {
+    fn from(value: GeoCoord) -> Self {
+        Coordinate {
+            x: value.x,
+            y: value.y,
+        }
+    }
 }
 
 impl From<Coordinate> for GeoCoord {
@@ -87,6 +97,67 @@ impl From<MultiPolygon> for GeoMultiPolygon {
     }
 }
 
+// H3 coordinates are always WGS84
+const SRID: i32 = 4326;
+
+// The structs below are only used to encode results. Unlike the decoding
+// structs above, they declare every field of the Geo struct, so that the
+// encoded map is a complete struct.
+
+#[derive(NifStruct)]
+#[module = "Geo.Point"]
+pub struct PointOut {
+    coordinates: Coordinate,
+    srid: i32,
+    properties: HashMap<String, String>,
+}
+
+impl From<GeoCoord> for PointOut {
+    fn from(value: GeoCoord) -> Self {
+        PointOut {
+            coordinates: Coordinate::from(value),
+            srid: SRID,
+            properties: HashMap::new(),
+        }
+    }
+}
+
+#[derive(NifStruct)]
+#[module = "Geo.Polygon"]
+pub struct PolygonOut {
+    coordinates: Vec<Vec<Coordinate>>,
+    srid: i32,
+    properties: HashMap<String, String>,
+}
+
+impl From<GeoPolygon> for PolygonOut {
+    fn from(value: GeoPolygon) -> Self {
+        PolygonOut {
+            coordinates: polygon_to_coordinates(value),
+            srid: SRID,
+            properties: HashMap::new(),
+        }
+    }
+}
+
+#[derive(NifStruct)]
+#[module = "Geo.MultiPolygon"]
+pub struct MultiPolygonOut {
+    coordinates: Vec<Vec<Vec<Coordinate>>>,
+    srid: i32,
+    properties: HashMap<String, String>,
+}
+
+impl From<GeoMultiPolygon> for MultiPolygonOut {
+    fn from(value: GeoMultiPolygon) -> Self {
+        MultiPolygonOut {
+            coordinates: value.into_iter().map(polygon_to_coordinates).collect(),
+            srid: SRID,
+            properties: HashMap::new(),
+        }
+    }
+}
+
 #[rustler::nif]
 fn point_to_cell(point: Point, resolution: u8) -> Result<u64, Atom> {
     let latitude = point.coordinates.y;
@@ -97,10 +168,7 @@ fn point_to_cell(point: Point, resolution: u8) -> Result<u64, Atom> {
         Err(_e) => return Err(atoms::invalid_lat_lng()),
     };
 
-    let resolution = match h3o::Resolution::try_from(resolution) {
-        Ok(resolution) => resolution,
-        Err(_e) => return Err(atoms::invalid_resolution()),
-    };
+    let resolution = parse_resolution(resolution)?;
 
     let cell = coord.to_cell(resolution);
     return Ok(u64::from(cell));
@@ -108,10 +176,7 @@ fn point_to_cell(point: Point, resolution: u8) -> Result<u64, Atom> {
 
 #[rustler::nif(schedule = "DirtyCpu")]
 fn polygon_to_cells(polygon: Polygon, resolution: u8) -> Result<Vec<u64>, Atom> {
-    let resolution = match h3o::Resolution::try_from(resolution) {
-        Ok(resolution) => resolution,
-        Err(_e) => return Err(atoms::invalid_resolution()),
-    };
+    let resolution = parse_resolution(resolution)?;
 
     // Use h3o to get the cells that cover the polygon
     let geo_polygon = GeoPolygon::from(polygon);
@@ -129,10 +194,7 @@ fn polygon_to_cells(polygon: Polygon, resolution: u8) -> Result<Vec<u64>, Atom> 
 
 #[rustler::nif(schedule = "DirtyCpu")]
 fn multipolygon_to_cells(multipolygon: MultiPolygon, resolution: u8) -> Result<Vec<u64>, Atom> {
-    let resolution = match h3o::Resolution::try_from(resolution) {
-        Ok(resolution) => resolution,
-        Err(_e) => return Err(atoms::invalid_resolution()),
-    };
+    let resolution = parse_resolution(resolution)?;
 
     let geo_mp = GeoMultiPolygon::from(multipolygon);
     let mut tiler = TilerBuilder::new(resolution)
@@ -149,15 +211,7 @@ fn multipolygon_to_cells(multipolygon: MultiPolygon, resolution: u8) -> Result<V
 
 #[rustler::nif]
 fn compact(cells: Vec<u64>) -> Result<Vec<u64>, Atom> {
-    let mut indexes = match cells
-        .into_iter()
-        .unique()
-        .map(|cell| CellIndex::try_from(cell))
-        .collect::<Result<Vec<_>, _>>()
-    {
-        Ok(indexes) => indexes,
-        Err(_e) => return Err(atoms::invalid_cell_index()),
-    };
+    let mut indexes = parse_cells(cells.into_iter().unique())?;
 
     if let Err(_e) = CellIndex::compact(&mut indexes) {
         return Err(atoms::compaction_error());
@@ -168,23 +222,25 @@ fn compact(cells: Vec<u64>) -> Result<Vec<u64>, Atom> {
 
 #[rustler::nif]
 fn uncompact(cells: Vec<u64>, resolution: u8) -> Result<Vec<u64>, Atom> {
-    let indexes = match cells
-        .into_iter()
-        .map(|cell| CellIndex::try_from(cell))
-        .collect::<Result<Vec<_>, _>>()
-    {
-        Ok(indexes) => indexes,
-        Err(_e) => return Err(atoms::invalid_cell_index()),
-    };
+    let indexes = parse_cells(cells)?;
 
-    let resolution = match h3o::Resolution::try_from(resolution) {
-        Ok(resolution) => resolution,
-        Err(_e) => return Err(atoms::invalid_resolution()),
-    };
+    let resolution = parse_resolution(resolution)?;
 
     let uncompacted_iter = CellIndex::uncompact(indexes, resolution);
 
     return Ok(uncompacted_iter.map(|cell| u64::from(cell)).collect());
+}
+
+fn parse_resolution(resolution: u8) -> Result<h3o::Resolution, Atom> {
+    h3o::Resolution::try_from(resolution).map_err(|_e| atoms::invalid_resolution())
+}
+
+fn parse_cell(cell: u64) -> Result<CellIndex, Atom> {
+    CellIndex::try_from(cell).map_err(|_e| atoms::invalid_cell_index())
+}
+
+fn parse_cells(cells: impl IntoIterator<Item = u64>) -> Result<Vec<CellIndex>, Atom> {
+    cells.into_iter().map(parse_cell).collect()
 }
 
 fn coordinates_to_line_string(coords: Vec<Coordinate>) -> GeoLineString {
@@ -193,6 +249,19 @@ fn coordinates_to_line_string(coords: Vec<Coordinate>) -> GeoLineString {
         .map(|coord| GeoCoord::from(coord))
         .collect::<Vec<_>>();
     return GeoLineString::new(geocoords);
+}
+
+fn line_string_to_coordinates(line_string: GeoLineString) -> Vec<Coordinate> {
+    line_string.into_iter().map(Coordinate::from).collect()
+}
+
+fn polygon_to_coordinates(polygon: GeoPolygon) -> Vec<Vec<Coordinate>> {
+    let (exterior, interiors) = polygon.into_inner();
+
+    std::iter::once(exterior)
+        .chain(interiors)
+        .map(line_string_to_coordinates)
+        .collect()
 }
 
 fn line_strings_to_polygon(line_strings: Vec<GeoLineString>) -> GeoPolygon {
