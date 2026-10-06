@@ -58,10 +58,16 @@ jobs:
           # Get the project version from mix.exs
           echo "PROJECT_VERSION=$(sed -n 's/^  @version "\(.*\)"/\1/p' mix.exs | head -n1)" >> $GITHUB_ENV
 
+      - name: Read Rust version
+        shell: bash
+        run: |
+          # Get the Rust version from .tool-versions
+          echo "RUST_VERSION=$(awk '$1 == "rust" { print $2 }' .tool-versions)" >> $GITHUB_ENV
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.99.0"
+          toolchain: ${{ env.RUST_VERSION }}
           target: ${{ matrix.job.target }}
 
       - name: Build the project

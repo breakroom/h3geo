@@ -24,10 +24,16 @@ jobs:
           version-file: .tool-versions
           version-type: strict
 
+      - name: Read Rust version
+        shell: bash
+        run: |
+          # Get the Rust version from .tool-versions
+          echo "RUST_VERSION=$(awk '$1 == "rust" { print $2 }' .tool-versions)" >> $GITHUB_ENV
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.99.0"
+          toolchain: ${{ env.RUST_VERSION }}
           components: rustfmt
 
       - name: Cache Rust build

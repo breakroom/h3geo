@@ -17,7 +17,7 @@ cargo fmt --manifest-path native/h3geo/Cargo.toml     # Rust formatting
 FORCE_H3GEO_BUILD=1 mix run benchmark/benchmark.exs   # Benchee benchmarks
 ```
 
-**Always set `FORCE_H3GEO_BUILD=1` when changing Rust code.** Without it, `RustlerPrecompiled` downloads the prebuilt NIF for the current `@version` from GitHub releases (and verifies it against `checksum-Elixir.H3Geo.exs`), so local Rust changes are silently ignored. Rust toolchain is pinned to 1.99.0 in `.tool-versions`.
+**Always set `FORCE_H3GEO_BUILD=1` when changing Rust code.** Without it, `RustlerPrecompiled` downloads the prebuilt NIF for the current `@version` from GitHub releases (and verifies it against `checksum-Elixir.H3Geo.exs`), so local Rust changes are silently ignored. Rust toolchain is pinned to 1.99.0 in `.tool-versions`, which the CI workflows also read, so that is the only place to change it.
 
 ## Architecture
 
