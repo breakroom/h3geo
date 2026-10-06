@@ -73,7 +73,7 @@ defmodule H3GeoTest do
       ]
 
       assert {:ok, returned_cells} = H3Geo.multipolygon_to_cells(multipolygon, 4)
-      assert expected_cells == returned_cells
+      assert Enum.sort(expected_cells) == Enum.sort(returned_cells)
     end
 
     test "it errors with an empty line string" do

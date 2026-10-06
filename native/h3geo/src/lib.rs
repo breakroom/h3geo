@@ -3,9 +3,8 @@ use geo::{
     Polygon as GeoPolygon,
 };
 use h3o::{
-    self,
-    geom::{PolyfillConfig, ToCells},
-    CellIndex,
+    self, CellIndex,
+    geom::{ContainmentMode, TilerBuilder},
 };
 use itertools::Itertools;
 use rustler::{Atom, NifStruct, NifTuple};
@@ -116,13 +115,13 @@ fn polygon_to_cells(polygon: Polygon, resolution: u8) -> Result<Vec<u64>, Atom> 
 
     // Use h3o to get the cells that cover the polygon
     let geo_polygon = GeoPolygon::from(polygon);
-    let h3_polygon = match h3o::geom::Polygon::from_degrees(geo_polygon) {
-        Ok(polygon) => polygon,
-        Err(_e) => return Err(atoms::invalid_geometry()),
-    };
-    let config =
-        PolyfillConfig::new(resolution).containment_mode(h3o::geom::ContainmentMode::Covers);
-    let cells = h3_polygon.to_cells(config);
+    let mut tiler = TilerBuilder::new(resolution)
+        .containment_mode(ContainmentMode::Covers)
+        .build();
+    if let Err(_e) = tiler.add(geo_polygon) {
+        return Err(atoms::invalid_geometry());
+    }
+    let cells = tiler.into_coverage();
 
     // Convert the cells into Vec<u64>
     return Ok(cells.map(|cell| u64::from(cell)).unique().collect());
@@ -136,14 +135,13 @@ fn multipolygon_to_cells(multipolygon: MultiPolygon, resolution: u8) -> Result<V
     };
 
     let geo_mp = GeoMultiPolygon::from(multipolygon);
-    let h3_mp = match h3o::geom::MultiPolygon::from_degrees(geo_mp) {
-        Ok(mp) => mp,
-        Err(_e) => return Err(atoms::invalid_geometry()),
-    };
-
-    let config =
-        PolyfillConfig::new(resolution).containment_mode(h3o::geom::ContainmentMode::Covers);
-    let cells = h3_mp.to_cells(config);
+    let mut tiler = TilerBuilder::new(resolution)
+        .containment_mode(ContainmentMode::Covers)
+        .build();
+    if let Err(_e) = tiler.add_batch(geo_mp) {
+        return Err(atoms::invalid_geometry());
+    }
+    let cells = tiler.into_coverage();
 
     // Convert the cells into Vec<u64>
     return Ok(cells.map(|cell| u64::from(cell)).unique().collect());
@@ -151,7 +149,7 @@ fn multipolygon_to_cells(multipolygon: MultiPolygon, resolution: u8) -> Result<V
 
 #[rustler::nif]
 fn compact(cells: Vec<u64>) -> Result<Vec<u64>, Atom> {
-    let indexes = match cells
+    let mut indexes = match cells
         .into_iter()
         .unique()
         .map(|cell| CellIndex::try_from(cell))
@@ -161,12 +159,11 @@ fn compact(cells: Vec<u64>) -> Result<Vec<u64>, Atom> {
         Err(_e) => return Err(atoms::invalid_cell_index()),
     };
 
-    let compact_indexes = match CellIndex::compact(indexes) {
-        Ok(compact) => compact,
-        Err(_e) => return Err(atoms::compaction_error()),
-    };
+    if let Err(_e) = CellIndex::compact(&mut indexes) {
+        return Err(atoms::compaction_error());
+    }
 
-    return Ok(compact_indexes.map(|cell| u64::from(cell)).collect());
+    return Ok(indexes.into_iter().map(|cell| u64::from(cell)).collect());
 }
 
 #[rustler::nif]
@@ -209,13 +206,4 @@ fn line_strings_to_polygon(line_strings: Vec<GeoLineString>) -> GeoPolygon {
     return GeoPolygon::new(outer, inners);
 }
 
-rustler::init!(
-    "Elixir.H3Geo",
-    [
-        point_to_cell,
-        polygon_to_cells,
-        multipolygon_to_cells,
-        compact,
-        uncompact
-    ]
-);
+rustler::init!("Elixir.H3Geo");
