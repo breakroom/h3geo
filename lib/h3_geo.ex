@@ -130,4 +130,35 @@ defmodule H3Geo do
   """
   @spec string_to_cell(String.t()) :: {:ok, index()} | {:error, :invalid_cell_index}
   def string_to_cell(_string), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns the parent of the cell at the given coarser (or equal) resolution.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#method.parent)
+  """
+  @spec parent(index(), precision()) ::
+          {:ok, index()} | {:error, :invalid_cell_index | :invalid_resolution}
+  def parent(_index, _resolution), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns the children of the cell at the given finer (or equal) resolution.
+
+  The number of children grows by a factor of 7 for each resolution, so asking
+  for children many resolutions below the cell can return an enormous list.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#method.children)
+  """
+  @spec children(index(), precision()) ::
+          {:ok, list(index())} | {:error, :invalid_cell_index | :invalid_resolution}
+  def children(_index, _resolution), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns the center child of the cell at the given finer (or equal)
+  resolution.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#method.center_child)
+  """
+  @spec center_child(index(), precision()) ::
+          {:ok, index()} | {:error, :invalid_cell_index | :invalid_resolution}
+  def center_child(_index, _resolution), do: :erlang.nif_error(:nif_not_loaded)
 end

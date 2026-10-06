@@ -180,4 +180,81 @@ defmodule H3GeoTest do
                H3Geo.string_to_cell(Integer.to_string(@invalid_cell, 16))
     end
   end
+
+  describe "parent/2" do
+    test "it returns the parent at a coarser resolution" do
+      assert {:ok, parent} = H3Geo.parent(@cell, 5)
+      assert {:ok, 5} == H3Geo.resolution(parent)
+      assert {:ok, children} = H3Geo.children(parent, 6)
+      assert @cell in children
+    end
+
+    test "it returns the cell itself at the same resolution" do
+      assert {:ok, @cell} == H3Geo.parent(@cell, 6)
+    end
+
+    test "it errors with a finer resolution" do
+      assert {:error, :invalid_resolution} == H3Geo.parent(@cell, 7)
+      assert {:error, :invalid_resolution} == H3Geo.parent(@cell, 16)
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.parent(@invalid_cell, 5)
+    end
+  end
+
+  describe "children/2" do
+    test "it returns the children of a hexagon" do
+      assert {:ok, children} = H3Geo.children(@cell, 7)
+      assert length(children) == 7
+      assert Enum.all?(children, &(H3Geo.parent(&1, 6) == {:ok, @cell}))
+    end
+
+    test "it returns the children of a pentagon" do
+      assert {:ok, children} = H3Geo.children(@pentagon, 1)
+      assert length(children) == 6
+      assert Enum.all?(children, &(H3Geo.parent(&1, 0) == {:ok, @pentagon}))
+    end
+
+    test "it returns the children several resolutions down" do
+      assert {:ok, children} = H3Geo.children(@cell, 8)
+      assert length(children) == 49
+    end
+
+    test "it returns the cell itself at the same resolution" do
+      assert {:ok, [@cell]} == H3Geo.children(@cell, 6)
+    end
+
+    test "it errors with a coarser resolution" do
+      assert {:error, :invalid_resolution} == H3Geo.children(@cell, 5)
+      assert {:error, :invalid_resolution} == H3Geo.children(@cell, 16)
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.children(@invalid_cell, 7)
+    end
+  end
+
+  describe "center_child/2" do
+    test "it returns the center child" do
+      assert {:ok, center} = H3Geo.center_child(@cell, 8)
+      assert {:ok, 8} == H3Geo.resolution(center)
+      assert {:ok, @cell} == H3Geo.parent(center, 6)
+      assert {:ok, children} = H3Geo.children(@cell, 8)
+      assert center in children
+    end
+
+    test "it returns the cell itself at the same resolution" do
+      assert {:ok, @cell} == H3Geo.center_child(@cell, 6)
+    end
+
+    test "it errors with a coarser resolution" do
+      assert {:error, :invalid_resolution} == H3Geo.center_child(@cell, 5)
+      assert {:error, :invalid_resolution} == H3Geo.center_child(@cell, 16)
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.center_child(@invalid_cell, 7)
+    end
+  end
 end

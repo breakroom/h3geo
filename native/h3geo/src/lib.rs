@@ -278,6 +278,44 @@ fn string_to_cell(string: &str) -> Result<u64, Atom> {
     }
 }
 
+#[rustler::nif]
+fn parent(cell: u64, resolution: u8) -> Result<u64, Atom> {
+    let cell = parse_cell(cell)?;
+    let resolution = parse_resolution(resolution)?;
+
+    match cell.parent(resolution) {
+        Some(parent) => Ok(u64::from(parent)),
+        None => Err(atoms::invalid_resolution()),
+    }
+}
+
+#[rustler::nif(schedule = "DirtyCpu")]
+fn children(cell: u64, resolution: u8) -> Result<Vec<u64>, Atom> {
+    let cell = parse_cell(cell)?;
+    let resolution = parse_resolution(resolution)?;
+
+    // h3o returns no children for a coarser resolution, rather than an error
+    if resolution < cell.resolution() {
+        return Err(atoms::invalid_resolution());
+    }
+
+    return Ok(cell
+        .children(resolution)
+        .map(|child| u64::from(child))
+        .collect());
+}
+
+#[rustler::nif]
+fn center_child(cell: u64, resolution: u8) -> Result<u64, Atom> {
+    let cell = parse_cell(cell)?;
+    let resolution = parse_resolution(resolution)?;
+
+    match cell.center_child(resolution) {
+        Some(child) => Ok(u64::from(child)),
+        None => Err(atoms::invalid_resolution()),
+    }
+}
+
 fn parse_resolution(resolution: u8) -> Result<h3o::Resolution, Atom> {
     h3o::Resolution::try_from(resolution).map_err(|_e| atoms::invalid_resolution())
 }
