@@ -70,10 +70,10 @@ impl From<Polygon> for GeoPolygon {
         let line_strings: Vec<GeoLineString> = value
             .coordinates
             .into_iter()
-            .map(|coords| coordinates_to_line_string(coords))
+            .map(coordinates_to_line_string)
             .collect();
 
-        return line_strings_to_polygon(line_strings);
+        line_strings_to_polygon(line_strings)
     }
 }
 
@@ -89,16 +89,13 @@ impl From<MultiPolygon> for GeoMultiPolygon {
             .coordinates
             .into_iter()
             .map(|vec| {
-                let line_strings = vec
-                    .into_iter()
-                    .map(|coords| coordinates_to_line_string(coords))
-                    .collect();
+                let line_strings = vec.into_iter().map(coordinates_to_line_string).collect();
 
-                return line_strings_to_polygon(line_strings);
+                line_strings_to_polygon(line_strings)
             })
             .collect();
 
-        return GeoMultiPolygon::new(polygons);
+        GeoMultiPolygon::new(polygons)
     }
 }
 
@@ -176,7 +173,7 @@ fn point_to_cell(point: Point, resolution: u8) -> Result<u64, Atom> {
     let resolution = parse_resolution(resolution)?;
 
     let cell = coord.to_cell(resolution);
-    return Ok(u64::from(cell));
+    Ok(u64::from(cell))
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
@@ -194,7 +191,7 @@ fn polygon_to_cells(polygon: Polygon, resolution: u8) -> Result<Vec<u64>, Atom> 
     let cells = tiler.into_coverage();
 
     // Convert the cells into Vec<u64>
-    return Ok(cells.map(|cell| u64::from(cell)).unique().collect());
+    Ok(cells.map(u64::from).unique().collect())
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
@@ -211,7 +208,7 @@ fn multipolygon_to_cells(multipolygon: MultiPolygon, resolution: u8) -> Result<V
     let cells = tiler.into_coverage();
 
     // Convert the cells into Vec<u64>
-    return Ok(cells.map(|cell| u64::from(cell)).unique().collect());
+    Ok(cells.map(u64::from).unique().collect())
 }
 
 #[rustler::nif]
@@ -222,7 +219,7 @@ fn compact(cells: Vec<u64>) -> Result<Vec<u64>, Atom> {
         return Err(atoms::compaction_error());
     }
 
-    return Ok(indexes.into_iter().map(|cell| u64::from(cell)).collect());
+    Ok(indexes.into_iter().map(u64::from).collect())
 }
 
 #[rustler::nif]
@@ -233,7 +230,7 @@ fn uncompact(cells: Vec<u64>, resolution: u8) -> Result<Vec<u64>, Atom> {
 
     let uncompacted_iter = CellIndex::uncompact(indexes, resolution);
 
-    return Ok(uncompacted_iter.map(|cell| u64::from(cell)).collect());
+    Ok(uncompacted_iter.map(u64::from).collect())
 }
 
 #[rustler::nif(name = "valid_cell?")]
@@ -250,28 +247,28 @@ fn valid_cell(index: Term) -> bool {
 fn resolution(cell: u64) -> Result<u8, Atom> {
     let cell = parse_cell(cell)?;
 
-    return Ok(u8::from(cell.resolution()));
+    Ok(u8::from(cell.resolution()))
 }
 
 #[rustler::nif(name = "pentagon?")]
 fn pentagon(cell: u64) -> Result<bool, Atom> {
     let cell = parse_cell(cell)?;
 
-    return Ok(cell.is_pentagon());
+    Ok(cell.is_pentagon())
 }
 
 #[rustler::nif]
 fn base_cell(cell: u64) -> Result<u8, Atom> {
     let cell = parse_cell(cell)?;
 
-    return Ok(u8::from(cell.base_cell()));
+    Ok(u8::from(cell.base_cell()))
 }
 
 #[rustler::nif]
 fn cell_to_string(cell: u64) -> Result<String, Atom> {
     let cell = parse_cell(cell)?;
 
-    return Ok(cell.to_string());
+    Ok(cell.to_string())
 }
 
 #[rustler::nif]
@@ -303,10 +300,7 @@ fn children(cell: u64, resolution: u8) -> Result<Vec<u64>, Atom> {
         return Err(atoms::invalid_resolution());
     }
 
-    return Ok(cell
-        .children(resolution)
-        .map(|child| u64::from(child))
-        .collect());
+    Ok(cell.children(resolution).map(u64::from).collect())
 }
 
 #[rustler::nif]
@@ -325,7 +319,7 @@ fn cell_to_point(cell: u64) -> Result<PointOut, Atom> {
     let cell = parse_cell(cell)?;
     let lat_lng = h3o::LatLng::from(cell);
 
-    return Ok(PointOut::from(GeoCoord::from(lat_lng)));
+    Ok(PointOut::from(GeoCoord::from(lat_lng)))
 }
 
 #[rustler::nif]
@@ -336,7 +330,7 @@ fn cell_to_polygon(cell: u64) -> Result<PolygonOut, Atom> {
     let exterior = GeoLineString::from(cell.boundary());
     let polygon = GeoPolygon::new(exterior, vec![]);
 
-    return Ok(PolygonOut::from(polygon));
+    Ok(PolygonOut::from(polygon))
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
@@ -357,7 +351,7 @@ fn grid_disk(cell: u64, k: u32) -> Result<Vec<u64>, Atom> {
     let cell = parse_cell(cell)?;
 
     let cells: Vec<CellIndex> = cell.grid_disk(k);
-    return Ok(cells.into_iter().map(|cell| u64::from(cell)).collect());
+    Ok(cells.into_iter().map(u64::from).collect())
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
@@ -365,7 +359,7 @@ fn grid_ring(cell: u64, k: u32) -> Result<Vec<u64>, Atom> {
     let cell = parse_cell(cell)?;
 
     let cells: Vec<CellIndex> = cell.grid_ring(k);
-    return Ok(cells.into_iter().map(|cell| u64::from(cell)).collect());
+    Ok(cells.into_iter().map(u64::from).collect())
 }
 
 #[rustler::nif]
@@ -373,7 +367,7 @@ fn grid_distance(origin: u64, destination: u64) -> Result<i32, Atom> {
     let origin = parse_cell(origin)?;
     let destination = parse_cell(destination)?;
 
-    return origin.grid_distance(destination).map_err(local_ij_error);
+    origin.grid_distance(destination).map_err(local_ij_error)
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
@@ -381,11 +375,11 @@ fn grid_path_cells(origin: u64, destination: u64) -> Result<Vec<u64>, Atom> {
     let origin = parse_cell(origin)?;
     let destination = parse_cell(destination)?;
 
-    return origin
+    origin
         .grid_path_cells(destination)
         .map_err(local_ij_error)?
         .map(|cell| cell.map(u64::from).map_err(local_ij_error))
-        .collect();
+        .collect()
 }
 
 #[rustler::nif(name = "neighbors?")]
@@ -393,9 +387,8 @@ fn neighbors(a: u64, b: u64) -> Result<bool, Atom> {
     let a = parse_cell(a)?;
     let b = parse_cell(b)?;
 
-    return a
-        .is_neighbor_with(b)
-        .map_err(|_e| atoms::resolution_mismatch());
+    a.is_neighbor_with(b)
+        .map_err(|_e| atoms::resolution_mismatch())
 }
 
 fn local_ij_error(error: LocalIjError) -> Atom {
@@ -420,11 +413,8 @@ fn parse_cells(cells: impl IntoIterator<Item = u64>) -> Result<Vec<CellIndex>, A
 }
 
 fn coordinates_to_line_string(coords: Vec<Coordinate>) -> GeoLineString {
-    let geocoords = coords
-        .into_iter()
-        .map(|coord| GeoCoord::from(coord))
-        .collect::<Vec<_>>();
-    return GeoLineString::new(geocoords);
+    let geocoords = coords.into_iter().map(GeoCoord::from).collect::<Vec<_>>();
+    GeoLineString::new(geocoords)
 }
 
 fn line_string_to_coordinates(line_string: GeoLineString) -> Vec<Coordinate> {
@@ -444,11 +434,11 @@ fn line_strings_to_polygon(line_strings: Vec<GeoLineString>) -> GeoPolygon {
     let mut line_strings_iter = line_strings.into_iter();
 
     let outer = line_strings_iter
-        .nth(0)
+        .next()
         .expect("expected outer line string");
     let inners = line_strings_iter.collect();
 
-    return GeoPolygon::new(outer, inners);
+    GeoPolygon::new(outer, inners)
 }
 
 rustler::init!("Elixir.H3Geo");
