@@ -32,4 +32,4 @@ h3geo-*.tar
 /priv/native/
 
 # Don't commit checksums so these aren't accidentally baked into a release
-checksum-Elixir.h3geo.exs
+checksum-Elixir.H3Geo.exs

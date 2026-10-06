@@ -38,9 +38,10 @@ Tests use GeoJSON fixtures in `test/support/` decoded via `Jason` + `Geo.JSON` (
 
 Precompiled NIFs are built by `.github/workflows/release.yml` across a matrix of targets and attached to the GitHub release when a tag is pushed. The release flow is:
 
-1. Bump `@version` in `mix.exs` (the workflow extracts the version from this line, so keep its format `  @version "x.y.z"`).
-2. Commit, tag `vX.Y.Z` and push the tag; wait for the workflow to publish the artefacts.
-3. Run `mix rustler_precompiled.download H3Geo --all --print` to regenerate `checksum-Elixir.H3Geo.exs`.
-4. `mix hex.publish` (the checksum file is included in the package via `package.files`).
+1. Bump `@version` in `mix.exs` (the workflow extracts the version from this line, so keep its format `  @version "x.y.z"`), update the install snippet in `README.md` if the minor version changed, and add an entry to `CHANGELOG.md`.
+2. Commit, tag `vX.Y.Z` (`git tag -m "vX.Y.Z" vX.Y.Z`, as tags are signed) and push the commit and the tag; wait for the workflow to publish the artefacts to the GitHub release.
+3. Run `FORCE_H3GEO_BUILD=1 mix rustler_precompiled.download H3Geo --all --print` to regenerate `checksum-Elixir.H3Geo.exs`. `FORCE_H3GEO_BUILD=1` is required because compiling `lib/h3_geo.ex` otherwise checks the previous version's checksum file, which has no entries for the new version, and fails.
+4. Optionally confirm the published NIF works: `MIX_ENV=test mix clean && rm -rf priv/native && mix test` (without `FORCE_H3GEO_BUILD`) downloads it, verifies it against the new checksums and runs the tests.
+5. `mix hex.publish` (the checksum file is included in the package via `package.files`, but is gitignored so it is never committed).
 
 If you add a target to the `targets` list in `lib/h3_geo.ex`, it must also be added to the workflow matrix.
