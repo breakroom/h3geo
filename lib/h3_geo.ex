@@ -80,4 +80,54 @@ defmodule H3Geo do
   @spec uncompact(list(index()), precision()) ::
           {:ok, list(index())} | {:error, :invalid_cell_index | :invalid_resolution}
   def uncompact(_indexes, _resolution), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns whether the integer is a valid H3 cell index.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#impl-TryFrom%3Cu64%3E-for-CellIndex)
+  """
+  @spec valid_cell?(integer()) :: boolean()
+  def valid_cell?(_index), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns the resolution of the cell.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#method.resolution)
+  """
+  @spec resolution(index()) :: {:ok, precision()} | {:error, :invalid_cell_index}
+  def resolution(_index), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns whether the cell is one of the twelve pentagons at its resolution.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#method.is_pentagon)
+  """
+  @spec pentagon?(index()) :: {:ok, boolean()} | {:error, :invalid_cell_index}
+  def pentagon?(_index), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns the number of the base (resolution 0) cell the cell belongs to,
+  between 0 and 121.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#method.base_cell)
+  """
+  @spec base_cell(index()) :: {:ok, 0..121} | {:error, :invalid_cell_index}
+  def base_cell(_index), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns the cell as a lowercase hexadecimal string, the standard textual
+  representation of H3 cells.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#impl-Display-for-CellIndex)
+  """
+  @spec cell_to_string(index()) :: {:ok, String.t()} | {:error, :invalid_cell_index}
+  def cell_to_string(_index), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Parses a hexadecimal string (in either case) into a cell.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#impl-FromStr-for-CellIndex)
+  """
+  @spec string_to_cell(String.t()) :: {:ok, index()} | {:error, :invalid_cell_index}
+  def string_to_cell(_string), do: :erlang.nif_error(:nif_not_loaded)
 end

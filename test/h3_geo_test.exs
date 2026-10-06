@@ -1,6 +1,13 @@
 defmodule H3GeoTest do
   use ExUnit.Case
 
+  # Resolution 6 hexagon, from the point_to_cell/2 test
+  @cell 0x86195985FFFFFFF
+  # Resolution 0 pentagon (base cell 4)
+  @pentagon 0x8009FFFFFFFFFFF
+  # Not a valid cell (the reserved bits are set)
+  @invalid_cell 0x86195985FFFFFFF + 1
+
   describe "point_to_cell/2" do
     test "it returns the correct cell" do
       point = %Geo.Point{coordinates: {-1.0, 51.0}, srid: 4326}
@@ -100,6 +107,77 @@ defmodule H3GeoTest do
 
       assert {:ok, compacted} = H3Geo.compact(cells)
       assert {:ok, ^cells} = H3Geo.uncompact(compacted, 6)
+    end
+  end
+
+  describe "valid_cell?/1" do
+    test "it returns true for a valid cell" do
+      assert H3Geo.valid_cell?(@cell)
+      assert H3Geo.valid_cell?(@pentagon)
+    end
+
+    test "it returns false for an invalid cell" do
+      refute H3Geo.valid_cell?(@invalid_cell)
+      refute H3Geo.valid_cell?(0)
+      refute H3Geo.valid_cell?(-1)
+      refute H3Geo.valid_cell?(2 ** 64)
+    end
+  end
+
+  describe "resolution/1" do
+    test "it returns the resolution" do
+      assert {:ok, 6} == H3Geo.resolution(@cell)
+      assert {:ok, 0} == H3Geo.resolution(@pentagon)
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.resolution(@invalid_cell)
+    end
+  end
+
+  describe "pentagon?/1" do
+    test "it returns whether the cell is a pentagon" do
+      assert {:ok, true} == H3Geo.pentagon?(@pentagon)
+      assert {:ok, false} == H3Geo.pentagon?(@cell)
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.pentagon?(@invalid_cell)
+    end
+  end
+
+  describe "base_cell/1" do
+    test "it returns the base cell number" do
+      assert {:ok, 4} == H3Geo.base_cell(@pentagon)
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.base_cell(@invalid_cell)
+    end
+  end
+
+  describe "cell_to_string/1 and string_to_cell/1" do
+    test "it returns the lowercase hex string" do
+      assert {:ok, "86195985fffffff"} == H3Geo.cell_to_string(@cell)
+    end
+
+    test "it parses a hex string" do
+      assert {:ok, @cell} == H3Geo.string_to_cell("86195985fffffff")
+      assert {:ok, @cell} == H3Geo.string_to_cell("86195985FFFFFFF")
+    end
+
+    test "it round trips" do
+      assert {:ok, string} = H3Geo.cell_to_string(@pentagon)
+      assert {:ok, @pentagon} == H3Geo.string_to_cell(string)
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.cell_to_string(@invalid_cell)
+      assert {:error, :invalid_cell_index} == H3Geo.string_to_cell("zz")
+      assert {:error, :invalid_cell_index} == H3Geo.string_to_cell("")
+
+      assert {:error, :invalid_cell_index} ==
+               H3Geo.string_to_cell(Integer.to_string(@invalid_cell, 16))
     end
   end
 end

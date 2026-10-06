@@ -7,9 +7,10 @@ use h3o::{
     geom::{ContainmentMode, TilerBuilder},
 };
 use itertools::Itertools;
-use rustler::{Atom, NifStruct, NifTuple};
+use rustler::{Atom, NifStruct, NifTuple, Term};
 use std::collections::HashMap;
 use std::convert::From;
+use std::str::FromStr;
 
 mod atoms {
     rustler::atoms! {
@@ -229,6 +230,52 @@ fn uncompact(cells: Vec<u64>, resolution: u8) -> Result<Vec<u64>, Atom> {
     let uncompacted_iter = CellIndex::uncompact(indexes, resolution);
 
     return Ok(uncompacted_iter.map(|cell| u64::from(cell)).collect());
+}
+
+#[rustler::nif(name = "valid_cell?")]
+fn valid_cell(index: Term) -> bool {
+    // Decode manually, so that integers outside the u64 range return false
+    // rather than raising an ArgumentError
+    match index.decode::<u64>() {
+        Ok(index) => CellIndex::try_from(index).is_ok(),
+        Err(_e) => false,
+    }
+}
+
+#[rustler::nif]
+fn resolution(cell: u64) -> Result<u8, Atom> {
+    let cell = parse_cell(cell)?;
+
+    return Ok(u8::from(cell.resolution()));
+}
+
+#[rustler::nif(name = "pentagon?")]
+fn pentagon(cell: u64) -> Result<bool, Atom> {
+    let cell = parse_cell(cell)?;
+
+    return Ok(cell.is_pentagon());
+}
+
+#[rustler::nif]
+fn base_cell(cell: u64) -> Result<u8, Atom> {
+    let cell = parse_cell(cell)?;
+
+    return Ok(u8::from(cell.base_cell()));
+}
+
+#[rustler::nif]
+fn cell_to_string(cell: u64) -> Result<String, Atom> {
+    let cell = parse_cell(cell)?;
+
+    return Ok(cell.to_string());
+}
+
+#[rustler::nif]
+fn string_to_cell(string: &str) -> Result<u64, Atom> {
+    match CellIndex::from_str(string) {
+        Ok(cell) => Ok(u64::from(cell)),
+        Err(_e) => Err(atoms::invalid_cell_index()),
+    }
 }
 
 fn parse_resolution(resolution: u8) -> Result<h3o::Resolution, Atom> {
