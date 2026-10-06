@@ -4,6 +4,7 @@ use geo::{
 };
 use h3o::{
     self, CellIndex,
+    error::LocalIjError,
     geom::{ContainmentMode, SolventBuilder, TilerBuilder},
 };
 use itertools::Itertools;
@@ -22,6 +23,8 @@ mod atoms {
       invalid_geometry,
       compaction_error,
       resolution_mismatch,
+      pentagon_distortion,
+      cells_too_far_apart,
       unknown,
     }
 }
@@ -346,6 +349,61 @@ fn cells_to_multipolygon(cells: Vec<u64>) -> Result<MultiPolygonOut, Atom> {
     match solvent.dissolve(cells) {
         Ok(multipolygon) => Ok(MultiPolygonOut::from(multipolygon)),
         Err(_e) => Err(atoms::resolution_mismatch()),
+    }
+}
+
+#[rustler::nif(schedule = "DirtyCpu")]
+fn grid_disk(cell: u64, k: u32) -> Result<Vec<u64>, Atom> {
+    let cell = parse_cell(cell)?;
+
+    let cells: Vec<CellIndex> = cell.grid_disk(k);
+    return Ok(cells.into_iter().map(|cell| u64::from(cell)).collect());
+}
+
+#[rustler::nif(schedule = "DirtyCpu")]
+fn grid_ring(cell: u64, k: u32) -> Result<Vec<u64>, Atom> {
+    let cell = parse_cell(cell)?;
+
+    let cells: Vec<CellIndex> = cell.grid_ring(k);
+    return Ok(cells.into_iter().map(|cell| u64::from(cell)).collect());
+}
+
+#[rustler::nif]
+fn grid_distance(origin: u64, destination: u64) -> Result<i32, Atom> {
+    let origin = parse_cell(origin)?;
+    let destination = parse_cell(destination)?;
+
+    return origin.grid_distance(destination).map_err(local_ij_error);
+}
+
+#[rustler::nif(schedule = "DirtyCpu")]
+fn grid_path_cells(origin: u64, destination: u64) -> Result<Vec<u64>, Atom> {
+    let origin = parse_cell(origin)?;
+    let destination = parse_cell(destination)?;
+
+    return origin
+        .grid_path_cells(destination)
+        .map_err(local_ij_error)?
+        .map(|cell| cell.map(u64::from).map_err(local_ij_error))
+        .collect();
+}
+
+#[rustler::nif(name = "neighbors?")]
+fn neighbors(a: u64, b: u64) -> Result<bool, Atom> {
+    let a = parse_cell(a)?;
+    let b = parse_cell(b)?;
+
+    return a
+        .is_neighbor_with(b)
+        .map_err(|_e| atoms::resolution_mismatch());
+}
+
+fn local_ij_error(error: LocalIjError) -> Atom {
+    match error {
+        LocalIjError::ResolutionMismatch => atoms::resolution_mismatch(),
+        LocalIjError::Pentagon => atoms::pentagon_distortion(),
+        LocalIjError::HexGrid(_e) => atoms::cells_too_far_apart(),
+        _ => atoms::unknown(),
     }
 }
 

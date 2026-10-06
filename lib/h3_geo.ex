@@ -195,4 +195,71 @@ defmodule H3Geo do
   @spec cells_to_multipolygon(list(index())) ::
           {:ok, Geo.MultiPolygon.t()} | {:error, :invalid_cell_index | :resolution_mismatch}
   def cells_to_multipolygon(_indexes), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns the cells within `k` grid steps of the cell, including the cell
+  itself, in no particular order.
+
+  A disk contains `3k(k + 1) + 1` cells (fewer if it includes a pentagon), so
+  large values of `k` can return an enormous list.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#method.grid_disk)
+  """
+  @spec grid_disk(index(), non_neg_integer()) ::
+          {:ok, list(index())} | {:error, :invalid_cell_index}
+  def grid_disk(_index, _k), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns the cells exactly `k` grid steps from the cell, in no particular
+  order.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#method.grid_ring)
+  """
+  @spec grid_ring(index(), non_neg_integer()) ::
+          {:ok, list(index())} | {:error, :invalid_cell_index}
+  def grid_ring(_index, _k), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns the number of grid steps between two cells of the same resolution.
+
+  This can fail for cells that are far apart (`:cells_too_far_apart`), or
+  on opposite sides of a pentagon (`:pentagon_distortion`).
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#method.grid_distance)
+  """
+  @spec grid_distance(index(), index()) ::
+          {:ok, non_neg_integer()}
+          | {:error,
+             :invalid_cell_index
+             | :resolution_mismatch
+             | :pentagon_distortion
+             | :cells_too_far_apart}
+  def grid_distance(_origin, _destination), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns the line of cells between two cells of the same resolution,
+  including both of them.
+
+  Fails in the same circumstances as `grid_distance/2`.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#method.grid_path_cells)
+  """
+  @spec grid_path_cells(index(), index()) ::
+          {:ok, list(index())}
+          | {:error,
+             :invalid_cell_index
+             | :resolution_mismatch
+             | :pentagon_distortion
+             | :cells_too_far_apart}
+  def grid_path_cells(_origin, _destination), do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Returns whether two cells of the same resolution share an edge. A cell is
+  not a neighbor of itself.
+
+  [Rust documentation](https://docs.rs/h3o/latest/h3o/struct.CellIndex.html#method.is_neighbor_with)
+  """
+  @spec neighbors?(index(), index()) ::
+          {:ok, boolean()} | {:error, :invalid_cell_index | :resolution_mismatch}
+  def neighbors?(_a, _b), do: :erlang.nif_error(:nif_not_loaded)
 end

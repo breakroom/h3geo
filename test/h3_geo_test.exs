@@ -7,6 +7,14 @@ defmodule H3GeoTest do
   @pentagon 0x8009FFFFFFFFFFF
   # Not a valid cell (the reserved bits are set)
   @invalid_cell 0x86195985FFFFFFF + 1
+  # Neighbouring resolution 10 cells, from the h3o documentation
+  @neighbor_a 0x8A1FB46622DFFFF
+  @neighbor_b 0x8A1FB46622D7FFF
+  # A resolution 10 cell that isn't a neighbour of @neighbor_a
+  @not_neighbor 0x8A1FB4644937FFF
+  # Resolution 2 cells on opposite sides of the base cell 4 pentagon
+  @across_pentagon_a 0x820817FFFFFFFFF
+  @across_pentagon_b 0x82082FFFFFFFFFF
 
   describe "point_to_cell/2" do
     test "it returns the correct cell" do
@@ -360,6 +368,143 @@ defmodule H3GeoTest do
     test "it errors with an invalid cell" do
       assert {:error, :invalid_cell_index} ==
                H3Geo.cells_to_multipolygon([@cell, @invalid_cell])
+    end
+  end
+
+  describe "grid_disk/2" do
+    test "it returns the cell for k = 0" do
+      assert {:ok, [@cell]} == H3Geo.grid_disk(@cell, 0)
+    end
+
+    test "it returns the cells within k steps" do
+      assert {:ok, disk} = H3Geo.grid_disk(@cell, 1)
+      assert length(disk) == 7
+      assert @cell in disk
+
+      assert {:ok, disk} = H3Geo.grid_disk(@cell, 2)
+      assert length(disk) == 19
+      assert disk == Enum.uniq(disk)
+    end
+
+    test "it returns fewer cells around a pentagon" do
+      assert {:ok, disk} = H3Geo.grid_disk(@pentagon, 1)
+      assert length(disk) == 6
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.grid_disk(@invalid_cell, 1)
+    end
+  end
+
+  describe "grid_ring/2" do
+    test "it returns the cell for k = 0" do
+      assert {:ok, [@cell]} == H3Geo.grid_ring(@cell, 0)
+    end
+
+    test "it returns the cells exactly k steps away" do
+      assert {:ok, ring} = H3Geo.grid_ring(@cell, 1)
+      assert {:ok, disk} = H3Geo.grid_disk(@cell, 1)
+      assert Enum.sort(ring) == Enum.sort(disk -- [@cell])
+
+      assert {:ok, ring} = H3Geo.grid_ring(@cell, 2)
+      assert length(ring) == 12
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.grid_ring(@invalid_cell, 1)
+    end
+  end
+
+  describe "grid_distance/2" do
+    test "it returns the distance between cells" do
+      assert {:ok, 1} == H3Geo.grid_distance(@neighbor_a, @neighbor_b)
+      assert {:ok, 0} == H3Geo.grid_distance(@cell, @cell)
+    end
+
+    test "it returns k for every cell in the ring of radius k" do
+      assert {:ok, ring} = H3Geo.grid_ring(@cell, 3)
+      assert Enum.all?(ring, &(H3Geo.grid_distance(@cell, &1) == {:ok, 3}))
+    end
+
+    test "it errors with cells of different resolutions" do
+      assert {:ok, parent} = H3Geo.parent(@cell, 5)
+      assert {:error, :resolution_mismatch} == H3Geo.grid_distance(@cell, parent)
+    end
+
+    test "it errors with cells too far apart" do
+      assert {:ok, london} = H3Geo.point_to_cell(%Geo.Point{coordinates: {-0.1, 51.5}}, 6)
+      assert {:ok, sydney} = H3Geo.point_to_cell(%Geo.Point{coordinates: {151.2, -33.9}}, 6)
+      assert {:error, :cells_too_far_apart} == H3Geo.grid_distance(london, sydney)
+    end
+
+    test "it errors with cells on opposite sides of a pentagon" do
+      assert {:error, :pentagon_distortion} ==
+               H3Geo.grid_distance(@across_pentagon_a, @across_pentagon_b)
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.grid_distance(@cell, @invalid_cell)
+      assert {:error, :invalid_cell_index} == H3Geo.grid_distance(@invalid_cell, @cell)
+    end
+  end
+
+  describe "grid_path_cells/2" do
+    test "it returns the path between cells" do
+      assert {:ok, ring} = H3Geo.grid_ring(@cell, 4)
+      destination = List.first(ring)
+
+      assert {:ok, path} = H3Geo.grid_path_cells(@cell, destination)
+      assert length(path) == 5
+      assert List.first(path) == @cell
+      assert List.last(path) == destination
+
+      assert path
+             |> Enum.chunk_every(2, 1, :discard)
+             |> Enum.all?(fn [a, b] -> H3Geo.neighbors?(a, b) == {:ok, true} end)
+    end
+
+    test "it returns the cell for a path to itself" do
+      assert {:ok, [@cell]} == H3Geo.grid_path_cells(@cell, @cell)
+    end
+
+    test "it errors with cells of different resolutions" do
+      assert {:ok, parent} = H3Geo.parent(@cell, 5)
+      assert {:error, :resolution_mismatch} == H3Geo.grid_path_cells(@cell, parent)
+    end
+
+    test "it errors with cells too far apart" do
+      assert {:ok, london} = H3Geo.point_to_cell(%Geo.Point{coordinates: {-0.1, 51.5}}, 6)
+      assert {:ok, sydney} = H3Geo.point_to_cell(%Geo.Point{coordinates: {151.2, -33.9}}, 6)
+      assert {:error, :cells_too_far_apart} == H3Geo.grid_path_cells(london, sydney)
+    end
+
+    test "it errors with cells on opposite sides of a pentagon" do
+      assert {:error, :pentagon_distortion} ==
+               H3Geo.grid_path_cells(@across_pentagon_a, @across_pentagon_b)
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.grid_path_cells(@cell, @invalid_cell)
+    end
+  end
+
+  describe "neighbors?/2" do
+    test "it returns whether the cells are neighbours" do
+      assert {:ok, true} == H3Geo.neighbors?(@neighbor_a, @neighbor_b)
+      assert {:ok, false} == H3Geo.neighbors?(@neighbor_a, @not_neighbor)
+    end
+
+    test "a cell isn't its own neighbour" do
+      assert {:ok, false} == H3Geo.neighbors?(@cell, @cell)
+    end
+
+    test "it errors with cells of different resolutions" do
+      assert {:ok, parent} = H3Geo.parent(@cell, 5)
+      assert {:error, :resolution_mismatch} == H3Geo.neighbors?(@cell, parent)
+    end
+
+    test "it errors with an invalid cell" do
+      assert {:error, :invalid_cell_index} == H3Geo.neighbors?(@cell, @invalid_cell)
     end
   end
 
