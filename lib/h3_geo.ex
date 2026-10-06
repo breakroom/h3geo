@@ -13,16 +13,25 @@ defmodule H3Geo do
   integer that isn't a valid cell, which can be checked with `valid_cell?/1`.
   """
   version = Mix.Project.config()[:version]
+  force_build = System.get_env("FORCE_H3GEO_BUILD") in ["1", "true"]
 
   use RustlerPrecompiled,
     otp_app: :h3geo,
     crate: :h3geo,
     base_url: "https://github.com/breakroom/h3geo/releases/download/v#{version}",
-    force_build: System.get_env("FORCE_H3GEO_BUILD") in ["1", "true"],
+    force_build: force_build,
     targets:
       Enum.uniq(["aarch64-unknown-linux-musl" | RustlerPrecompiled.Config.default_targets()]),
     version: version,
     nif_versions: ["2.15"]
+
+  # The choice between the precompiled and locally built NIF is made at compile
+  # time, so recompile when FORCE_H3GEO_BUILD changes. Otherwise Mix keeps
+  # loading whichever NIF the module was last compiled against.
+  @doc false
+  def __mix_recompile__? do
+    unquote(force_build) != System.get_env("FORCE_H3GEO_BUILD") in ["1", "true"]
+  end
 
   @type index :: pos_integer()
   @type precision :: 0..15
