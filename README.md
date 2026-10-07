@@ -12,7 +12,7 @@ This library exposes a subset of h3o: converting `Geo` geometries to cells and b
 ```elixir
 def deps do
   [
-    {:h3geo, "~> 0.2.0"}
+    {:h3geo, "~> 0.3.0"}
   ]
 end
 ```

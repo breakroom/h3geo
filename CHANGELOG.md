@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## Unreleased
+## 0.3.0
 
 - Add `cell_to_point/1`, `cell_to_polygon/1` and `cells_to_multipolygon/1` to convert cells back into `Geo` structs
 - Add `grid_disk/2`, `grid_ring/2`, `grid_distance/2`, `grid_path_cells/2` and `neighbors?/2`
